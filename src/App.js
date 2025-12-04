@@ -3,7 +3,8 @@ import axios from 'axios';
 import { Bus, QrCode, User, Clock, AlertCircle, Zap, MapPin, Route } from 'lucide-react';
 import './App.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/bus';
+const API_URL = process.env.REACT_APP_API_URL ;
+// || 'http://localhost:5000/api/bus'
 
 function App() {
   const [trackingBusId, setTrackingBusId] = useState('');
