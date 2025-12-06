@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bus, User, Clock, AlertCircle, Zap, MapPin, Navigation, Radio, X } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://trackease-backend-teq8.onrender.com/api/bus';
+const API_URL = process.env.REACT_APP_API_URL ;
 
 function App() {
   const [trackingBusId, setTrackingBusId] = useState('');
@@ -18,14 +18,24 @@ function App() {
   const circleRef = useRef(null);
   const layersRef = useRef({});
 
-  // Read ?track=BUSNO from URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const trackBus = params.get('track');
-    if (trackBus) {
-      startTrackingBus(trackBus.trim().toUpperCase());
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  let trackBus = params.get('track');
+
+  if (!trackBus) {
+    // support /track/150 style URLs
+    const pathParts = window.location.pathname.split('/').filter(Boolean); 
+    // e.g. "/track/150" → ["track", "150"]
+    if (pathParts[0] === 'track' && pathParts[1]) {
+      trackBus = pathParts[1];
     }
-  }, []);
+  }
+
+  if (trackBus) {
+    startTrackingBus(trackBus.trim().toUpperCase());
+  }
+}, []);
+
 
   // Initialize Leaflet map ONCE when we get first location
   useEffect(() => {
