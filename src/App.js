@@ -18,23 +18,23 @@ function App() {
   const circleRef = useRef(null);
   const layersRef = useRef({});
 
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  let trackBus = params.get('track');
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    let trackBus = params.get('track');
 
-  if (!trackBus) {
-    // support /track/150 style URLs
-    const pathParts = window.location.pathname.split('/').filter(Boolean); 
-    // e.g. "/track/150" → ["track", "150"]
-    if (pathParts[0] === 'track' && pathParts[1]) {
-      trackBus = pathParts[1];
+    if (!trackBus) {
+      // support /track/150 style URLs
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      // e.g. "/track/150" → ["track", "150"]
+      if (pathParts[0] === 'track' && pathParts[1]) {
+        trackBus = pathParts[1];
+      }
     }
-  }
 
-  if (trackBus) {
-    startTrackingBus(trackBus.trim().toUpperCase());
-  }
-}, []);
+    if (trackBus) {
+      startTrackingBus(trackBus.trim().toUpperCase());
+    }
+  }, []);
 
 
   // Initialize Leaflet map ONCE when we get first location
@@ -272,6 +272,7 @@ useEffect(() => {
     mapRef.current.panTo(newPos, { animate: true, duration: 1 });
   }, [currentLocation]);
 
+
   // Start tracking a bus
   const startTrackingBus = (busId) => {
     if (!busId || !busId.trim()) {
@@ -283,47 +284,47 @@ useEffect(() => {
     setError('');
     setTrackingBusId(cleanId);
     setShowTrackInput(false);
-    fetchBusLocation(cleanId);
+    fetchBusLocation(cleanId);   // first fetch immediately
 
     if (updateIntervalRef.current) {
       clearInterval(updateIntervalRef.current);
     }
 
+    // 🔥 now every 1 second
     updateIntervalRef.current = setInterval(() => {
       fetchBusLocation(cleanId);
-    }, 20000);
+    }, 1000);
   };
 
- // Call backend to get bus location
-const fetchBusLocation = async (busId) => {
+
+  // Call backend to get bus location
+  const fetchBusLocation = async (busId) => {
   try {
     setLoading(true);
 
-    // ✅ correct URL
     const response = await fetch(`${API_URL}/location/${busId}`);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Failed to fetch bus location');
+      // Try to parse JSON, but fall back to text to avoid “< !DOCTYPE ...” crashes
+      let msg = 'Failed to fetch bus location';
+      try {
+        const errJson = await response.json();
+        msg = errJson.error || msg;
+      } catch {
+        const text = await response.text();
+        console.warn('Non-JSON error body:', text);
+      }
+      throw new Error(msg);
     }
 
-    const data = await response.json(); // this is the object you send in res.json(...)
-
-    // Backend returns:
-    // {
-    //   busNumber,
-    //   driverName,
-    //   currentLocation,
-    //   speed,
-    //   isTracking,
-    //   trackingDuration,
-    //   lastUpdate
-    // }
+    const data = await response.json();
 
     setBusData({
       busNumber: data.busNumber,
       driverName: data.driverName,
       lastUpdate: new Date(data.lastUpdate).toLocaleTimeString(),
+      speed: data.speed,
+      trackingDuration: data.trackingDuration,
       isStale: !data.isTracking
     });
 
@@ -342,6 +343,7 @@ const fetchBusLocation = async (busId) => {
     setLoading(false);
   }
 };
+
 
 
   const handleManualTrack = () => {
@@ -375,8 +377,8 @@ const fetchBusLocation = async (busId) => {
       {/* Animated background blobs */}
       <div className="absolute inset-0 opacity-40 pointer-events-none overflow-hidden">
         <div className="absolute -top-20 -left-20 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/3 -right-20 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        <div className="absolute top-1/3 -right-20 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
 
       {/* Header - Fixed at top */}
@@ -499,7 +501,7 @@ const fetchBusLocation = async (busId) => {
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="mt-6 pt-6 border-t border-slate-200">
                     <p className="text-center text-xs text-slate-500 font-medium flex items-center justify-center gap-2">
                       <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -538,13 +540,13 @@ const fetchBusLocation = async (busId) => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-full shadow-md">
                     <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-500 rounded-full animate-pulse shadow-lg shadow-emerald-500/50"></div>
                     <span className="text-[10px] sm:text-xs font-extrabold text-emerald-700 uppercase tracking-wide">Live</span>
                   </div>
-                  
+
                   <button
                     onClick={() => {
                       setTrackingBusId('');
@@ -567,44 +569,41 @@ const fetchBusLocation = async (busId) => {
             {/* Map Container - Takes all remaining space */}
             <div className="flex-1 relative">
               <div id="map" className="w-full h-full"></div>
-              
+
               {/* Map Type Switcher - Floating on map */}
               <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
                 <button
                   onClick={() => setMapType('street')}
-                  className={`px-4 py-2 rounded-xl font-bold text-sm shadow-lg transition-all backdrop-blur-md ${
-                    mapType === 'street'
+                  className={`px-4 py-2 rounded-xl font-bold text-sm shadow-lg transition-all backdrop-blur-md ${mapType === 'street'
                       ? 'bg-indigo-600 text-white scale-105'
                       : 'bg-white/90 text-slate-700 hover:bg-white'
-                  }`}
+                    }`}
                   title="Street Map"
                 >
                   🗺️ Street
                 </button>
                 <button
                   onClick={() => setMapType('satellite')}
-                  className={`px-4 py-2 rounded-xl font-bold text-sm shadow-lg transition-all backdrop-blur-md ${
-                    mapType === 'satellite'
+                  className={`px-4 py-2 rounded-xl font-bold text-sm shadow-lg transition-all backdrop-blur-md ${mapType === 'satellite'
                       ? 'bg-indigo-600 text-white scale-105'
                       : 'bg-white/90 text-slate-700 hover:bg-white'
-                  }`}
+                    }`}
                   title="Satellite View"
                 >
                   🛰️ Satellite
                 </button>
                 <button
                   onClick={() => setMapType('hybrid')}
-                  className={`px-4 py-2 rounded-xl font-bold text-sm shadow-lg transition-all backdrop-blur-md ${
-                    mapType === 'hybrid'
+                  className={`px-4 py-2 rounded-xl font-bold text-sm shadow-lg transition-all backdrop-blur-md ${mapType === 'hybrid'
                       ? 'bg-indigo-600 text-white scale-105'
                       : 'bg-white/90 text-slate-700 hover:bg-white'
-                  }`}
+                    }`}
                   title="Hybrid View"
                 >
                   🌐 Hybrid
                 </button>
               </div>
-              
+
               {!window.L && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-100/90 to-indigo-100/90 backdrop-blur-md">
                   <div className="text-center">
@@ -634,7 +633,9 @@ const fetchBusLocation = async (busId) => {
                   ) : (
                     <>
                       <MapPin className="w-4 h-4 text-white" strokeWidth={2.5} />
-                      <span className="text-white font-bold text-xs sm:text-sm">Auto-refresh: 20s</span>
+                      <span className="text-white font-bold text-xs sm:text-sm">
+                        Auto-refresh: 1s
+                      </span>
                     </>
                   )}
                 </div>
