@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bus, User, Clock, AlertCircle, Zap, MapPin, Navigation, Radio, X } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL ;
+const API_URL = 'https://trackease-backend-teq8.onrender.com/api/bus';
 
 function App() {
   const [trackingBusId, setTrackingBusId] = useState('');
@@ -294,42 +294,55 @@ useEffect(() => {
     }, 20000);
   };
 
-  // Call backend to get bus location
-  const fetchBusLocation = async (busId) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_URL}/${busId}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch bus location');
-      }
-      
-      const responseData = await response.json();
-      const data = responseData.bus;
+ // Call backend to get bus location
+const fetchBusLocation = async (busId) => {
+  try {
+    setLoading(true);
 
-      setBusData({
-        busNumber: data.busNumber,
-        driverName: data.driverName,
-        lastUpdate: new Date(data.lastUpdated).toLocaleTimeString(),
-        isStale: data.isStale
-      });
+    // ✅ correct URL
+    const response = await fetch(`${API_URL}/location/${busId}`);
 
-      setCurrentLocation({
-        lat: data.location.latitude,
-        lng: data.location.longitude
-      });
-
-      setError('');
-    } catch (error) {
-      console.error('Fetch bus location error:', error);
-      setError(error.message || 'Failed to fetch bus location');
-      setBusData(null);
-      setCurrentLocation(null);
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch bus location');
     }
-  };
+
+    const data = await response.json(); // this is the object you send in res.json(...)
+
+    // Backend returns:
+    // {
+    //   busNumber,
+    //   driverName,
+    //   currentLocation,
+    //   speed,
+    //   isTracking,
+    //   trackingDuration,
+    //   lastUpdate
+    // }
+
+    setBusData({
+      busNumber: data.busNumber,
+      driverName: data.driverName,
+      lastUpdate: new Date(data.lastUpdate).toLocaleTimeString(),
+      isStale: !data.isTracking
+    });
+
+    setCurrentLocation({
+      lat: data.currentLocation.latitude,
+      lng: data.currentLocation.longitude
+    });
+
+    setError('');
+  } catch (error) {
+    console.error('Fetch bus location error:', error);
+    setError(error.message || 'Failed to fetch bus location');
+    setBusData(null);
+    setCurrentLocation(null);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleManualTrack = () => {
     setShowTrackInput(true);
